@@ -1,0 +1,11 @@
+# Build products
+sh311
+*.o
+*.d
+*.exe
+
+# Editor configuration
+.vscode/
+
+# Dev stuffs
+dev_docs/
