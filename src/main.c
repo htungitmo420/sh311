@@ -1,13 +1,13 @@
 #define _POSIX_C_SOURCE 200809L
 #define MAX_TOKENS 128
 
+#include "exec.h"
 #include "parser.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 // execute in parent process
@@ -43,45 +43,6 @@ static int builtin_cd(char *const arguments[], size_t argument_count)
     }
 
     return 0;
-}
-
-// execute in child process
-static int run_external_command(char *const arguments[])
-{
-    pid_t child_pid = fork();
-
-    if (child_pid < 0)
-    {
-        perror("sh311: fork");
-        return 1;
-    }
-
-    if (child_pid == 0)
-    {
-        execvp(arguments[0], arguments);
-        perror(arguments[0]);
-        _exit(127);
-    }
-
-    int child_status;
-
-    if (waitpid(child_pid, &child_status, 0) < 0)
-    {
-        perror("perror: waitpid");
-        return 1;
-    }
-
-    if (WIFEXITED(child_status))
-    {
-        return WEXITSTATUS(child_status);
-    }
-
-    if (WIFSIGNALED(child_status))
-    {
-        return 128 + WTERMSIG(child_status);
-    }
-
-    return 1;
 }
 
 int main(void)
@@ -124,10 +85,10 @@ int main(void)
             continue;
         }
 
-        Command command;
+        Pipeline pipeline;
         size_t error_index = 0;
 
-        ParserResult parser_result = parser_parse(tokens, (size_t)token_count, &command, &error_index);
+        ParserResult parser_result = parser_parse(tokens, (size_t)token_count, &pipeline, &error_index);
 
         if (parser_result == PARSER_EMPTY)
         {
@@ -141,6 +102,24 @@ int main(void)
             continue;
         }
 
+        if (parser_result == PARSER_EXPECTED_COMMAND)
+        {
+            if (error_index == (size_t)token_count)
+            {
+                fprintf(stderr, "sh311: expected command after '|'\n");
+            }
+            else
+            {
+                fprintf(
+                    stderr,
+                    "sh311: expected command near '%s'\n",
+                    lexer_token_type_name(tokens[error_index].type));
+            }
+
+            last_status = 2;
+            continue;
+        }
+
         if (parser_result == PARSER_TOO_MANY_ARGUMENTS)
         {
             fprintf(stderr, "sh311: too many command arguments\n");
@@ -148,8 +127,24 @@ int main(void)
             continue;
         }
 
-        char **arguments = command.arguments;
-        size_t argument_count = command.argument_count;
+        if (parser_result == PARSER_TOO_MANY_COMMANDS)
+        {
+            fprintf(stderr, "sh311: too many pipeline commands\n");
+            last_status = 2;
+            continue;
+        }
+
+        if (pipeline.command_count > 1)
+        {
+            fprintf(stderr, "sh311: pipeline execution is not implemented yet\n");
+            last_status = 2;
+            continue;
+        }
+
+        Command *command = &pipeline.commands[0];
+
+        char **arguments = command->arguments;
+        size_t argument_count = command->argument_count;
 
         if (strcmp(arguments[0], "cd") == 0)
         {
@@ -162,7 +157,7 @@ int main(void)
             break;
         }
 
-        last_status = run_external_command(arguments);
+        last_status = executor_run_command(command);
     }
 
     free(line);
