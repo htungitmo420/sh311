@@ -1,10 +1,12 @@
 #define _POSIX_C_SOURCE 200809L
-#define MAX_ARGUMENTS 128
+#define MAX_TOKENS 128
+
+#include "lexer.h"
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/types.h>
 #include <string.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -82,33 +84,6 @@ static int run_external_command(char *const arguments[])
     return 1;
 }
 
-static int split_line(
-    char *line,
-    char *arguments[],
-    size_t capacity)
-{
-    char *save_pointer = NULL;
-    char *token = strtok_r(line, " \t", &save_pointer);
-    size_t argument_count = 0;
-
-    while (token != NULL)
-    {
-        if (argument_count + 1 >= capacity)
-        {
-            fprintf(stderr, "sh311: too many arguments; maximum is %zu\n", capacity - 1);
-            return -1;
-        }
-
-        arguments[argument_count] = token;
-        argument_count++;
-
-        token = strtok_r(NULL, " \t", &save_pointer);
-    }
-
-    arguments[argument_count] = NULL;
-    return (int)argument_count;
-}
-
 int main(void)
 {
     char *line = NULL;
@@ -133,15 +108,32 @@ int main(void)
 
         line[strcspn(line, "\n")] = '\0';
 
-        char *arguments[MAX_ARGUMENTS];
+        Token tokens[MAX_TOKENS];
 
-        int argument_count = split_line(line, arguments, MAX_ARGUMENTS);
+        int token_count = lexer_tokenize(line, tokens, MAX_TOKENS);
 
-        if (argument_count < 0)
+        if (token_count < 0)
         {
+            fprintf(stderr, "sh311: lexer: too many tokens\n");
             last_status = 2;
             continue;
         }
+
+        if (token_count == 0)
+        {
+            continue;
+        }
+
+        char *arguments[MAX_TOKENS];
+
+        for (int i = 0; i < token_count; i++)
+        {
+            arguments[i] = tokens[i].text;
+        }
+
+        arguments[token_count] = NULL;
+
+        size_t argument_count = (size_t)token_count;
 
         if (argument_count == 0)
         {
