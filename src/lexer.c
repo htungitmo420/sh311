@@ -2,7 +2,16 @@
 
 #include "lexer.h"
 
-#include <string.h>
+#include <ctype.h>
+
+static int is_operator_start(char character)
+{
+    return character == '|' ||
+           character == '<' ||
+           character == '>' ||
+           character == ';' ||
+           character == '&';
+}
 
 int lexer_tokenize(char *line, Token tokens[], size_t capacity)
 {
@@ -12,25 +21,135 @@ int lexer_tokenize(char *line, Token tokens[], size_t capacity)
     }
 
     size_t token_count = 0;
-    char *save_pointer = NULL;
-    char *word = strtok_r(line, " \t", &save_pointer);
+    char *cursor = line;
 
-    while (word != NULL)
+    while (1)
     {
+        while (isspace((unsigned char)*cursor))
+        {
+            cursor++;
+        }
+
+        if (*cursor == '\0')
+        {
+            break;
+        }
+
         if (token_count + 1 >= capacity)
         {
             return -1;
         }
 
-        tokens[token_count].type = TOKEN_WORLD;
-        tokens[token_count].text = word;
-        token_count++;
+        if (!is_operator_start(*cursor))
+        {
+            char *word_start = cursor;
 
-        word = strtok_r(NULL, " \t", &save_pointer);
+            while (*cursor != '\0' && !isspace((unsigned char)*cursor) && !is_operator_start(*cursor))
+            {
+                cursor++;
+            }
+
+            tokens[token_count].type = TOKEN_WORD;
+            tokens[token_count].text = word_start;
+            tokens[token_count].length = (size_t)(cursor - word_start);
+
+            token_count++;
+            continue;
+        }
+
+        TokenType operator_type;
+        size_t operator_length = 1;
+
+        switch (*cursor)
+        {
+        case '|':
+            if (cursor[1] == '|')
+            {
+                operator_type = TOKEN_OR_IF;
+                operator_length = 2;
+            }
+            else
+            {
+                operator_type = TOKEN_PIPE;
+            }
+            break;
+
+        case '&':
+            if (cursor[1] == '&')
+            {
+                operator_type = TOKEN_AND_IF;
+                operator_length = 2;
+            }
+            else
+            {
+                operator_type = TOKEN_BACKGROUND;
+            }
+            break;
+
+        case '>':
+            if (cursor[1] == '>')
+            {
+                operator_type = TOKEN_REDIRECT_APPEND;
+                operator_length = 2;
+            }
+            else
+            {
+                operator_type = TOKEN_REDIRECT_OUT;
+            }
+            break;
+
+        case '<':
+            operator_type = TOKEN_REDIRECT_IN;
+            break;
+
+        case ';':
+            operator_type = TOKEN_SEMICOLON;
+            break;
+
+        default:
+            return -1;
+        }
+
+        tokens[token_count].type = operator_type;
+        tokens[token_count].text = cursor;
+        tokens[token_count].length = operator_length;
+
+        token_count++;
+        cursor += operator_length;
     }
 
     tokens[token_count].type = TOKEN_END;
     tokens[token_count].text = NULL;
+    tokens[token_count].length = 0;
 
     return (int)token_count;
+}
+
+const char *lexer_token_type_name(TokenType type)
+{
+    switch (type)
+    {
+    case TOKEN_WORD:
+        return "word";
+    case TOKEN_PIPE:
+        return "|";
+    case TOKEN_REDIRECT_IN:
+        return "<";
+    case TOKEN_REDIRECT_OUT:
+        return ">";
+    case TOKEN_REDIRECT_APPEND:
+        return ">>";
+    case TOKEN_AND_IF:
+        return "&&";
+    case TOKEN_OR_IF:
+        return "||";
+    case TOKEN_SEMICOLON:
+        return ";";
+    case TOKEN_BACKGROUND:
+        return "&";
+    case TOKEN_END:
+        return "end";
+    }
+
+    return "unknown";
 }

@@ -124,10 +124,29 @@ int main(void)
             continue;
         }
 
+        int contains_operator = 0;
+
+        for (int i = 0; i < token_count; i++)
+        {
+            if (tokens[i].type != TOKEN_WORD)
+            {
+                fprintf(stderr, "sh311: parser not implemented for token '%s\n", lexer_token_type_name(tokens[i].type));
+                contains_operator = 1;
+                last_status = 2;
+                break;
+            }
+        }
+
+        if (contains_operator)
+        {
+            continue;
+        }
+
         char *arguments[MAX_TOKENS];
 
         for (int i = 0; i < token_count; i++)
         {
+            tokens[i].text[tokens[i].length] = '\0';
             arguments[i] = tokens[i].text;
         }
 
