@@ -1,7 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 #define MAX_TOKENS 128
 
-#include "lexer.h"
+#include "parser.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -124,40 +124,32 @@ int main(void)
             continue;
         }
 
-        int contains_operator = 0;
+        Command command;
+        size_t error_index = 0;
 
-        for (int i = 0; i < token_count; i++)
-        {
-            if (tokens[i].type != TOKEN_WORD)
-            {
-                fprintf(stderr, "sh311: parser not implemented for token '%s\n", lexer_token_type_name(tokens[i].type));
-                contains_operator = 1;
-                last_status = 2;
-                break;
-            }
-        }
+        ParserResult parser_result = parser_parse(tokens, (size_t)token_count, &command, &error_index);
 
-        if (contains_operator)
+        if (parser_result == PARSER_EMPTY)
         {
             continue;
         }
 
-        char *arguments[MAX_TOKENS];
-
-        for (int i = 0; i < token_count; i++)
+        if (parser_result == PARSER_UNEXPECTED_TOKEN)
         {
-            tokens[i].text[tokens[i].length] = '\0';
-            arguments[i] = tokens[i].text;
-        }
-
-        arguments[token_count] = NULL;
-
-        size_t argument_count = (size_t)token_count;
-
-        if (argument_count == 0)
-        {
+            fprintf(stderr, "sh311: unexpected token '%s'\n", lexer_token_type_name(tokens[error_index].type));
+            last_status = 2;
             continue;
         }
+
+        if (parser_result == PARSER_TOO_MANY_ARGUMENTS)
+        {
+            fprintf(stderr, "sh311: too many command arguments\n");
+            last_status = 2;
+            continue;
+        }
+
+        char **arguments = command.arguments;
+        size_t argument_count = command.argument_count;
 
         if (strcmp(arguments[0], "cd") == 0)
         {
