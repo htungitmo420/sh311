@@ -120,6 +120,17 @@ int main(void)
             continue;
         }
 
+        if (parser_result == PARSER_EXPECTED_REDIRECTION_TARGET)
+        {
+            fprintf(
+                stderr,
+                "sh311: expected path after '%s'\n",
+                lexer_token_type_name(tokens[error_index].type));
+
+            last_status = 2;
+            continue;
+        }
+
         if (parser_result == PARSER_TOO_MANY_ARGUMENTS)
         {
             fprintf(stderr, "sh311: too many command arguments\n");
@@ -134,30 +145,46 @@ int main(void)
             continue;
         }
 
-        if (pipeline.command_count > 1)
+        if (parser_result == PARSER_TOO_MANY_REDIRECTIONS)
         {
-            fprintf(stderr, "sh311: pipeline execution is not implemented yet\n");
+            fprintf(stderr, "sh311: too many redirections\n");
             last_status = 2;
             continue;
         }
 
-        Command *command = &pipeline.commands[0];
-
-        char **arguments = command->arguments;
-        size_t argument_count = command->argument_count;
-
-        if (strcmp(arguments[0], "cd") == 0)
+        if (pipeline.command_count == 1)
         {
-            last_status = builtin_cd(arguments, argument_count);
-            continue;
+            Command *command = &pipeline.commands[0];
+
+            char **arguments = command->arguments;
+            size_t argument_count = command->argument_count;
+
+            if (
+                command->redirection_count > 0 &&
+                (strcmp(arguments[0], "cd") == 0 ||
+                 strcmp(arguments[0], "exit") == 0))
+            {
+                fprintf(
+                    stderr,
+                    "sh311: redirection for builtins is not implemented yet\n");
+
+                last_status = 2;
+                continue;
+            }
+
+            if (strcmp(arguments[0], "cd") == 0)
+            {
+                last_status = builtin_cd(arguments, argument_count);
+                continue;
+            }
+
+            if (strcmp(arguments[0], "exit") == 0)
+            {
+                break;
+            }
         }
 
-        if (strcmp(arguments[0], "exit") == 0)
-        {
-            break;
-        }
-
-        last_status = executor_run_command(command);
+        last_status = executor_run_pipeline(&pipeline);
     }
 
     free(line);

@@ -3,6 +3,6 @@
 
 #include "parser.h"
 
-int executor_run_command(const Command *command);
+int executor_run_pipeline(const Pipeline *pipeline);
 
 #endif

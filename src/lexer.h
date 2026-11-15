@@ -14,6 +14,8 @@ typedef enum
     TOKEN_OR_IF,
     TOKEN_SEMICOLON,
     TOKEN_BACKGROUND,
+    TOKEN_REDIRECT_ERR,
+    TOKEN_REDIRECT_ERR_TO_OUT,
     TOKEN_END
 } TokenType;
 

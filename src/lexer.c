@@ -40,6 +40,32 @@ int lexer_tokenize(char *line, Token tokens[], size_t capacity)
             return -1;
         }
 
+        if (cursor[0] == '2' &&
+            cursor[1] == '>' &&
+            cursor[2] == '&' &&
+            cursor[3] == '1')
+        {
+            tokens[token_count].type = TOKEN_REDIRECT_ERR_TO_OUT;
+            tokens[token_count].text = cursor;
+            tokens[token_count].length = 4;
+
+            token_count++;
+            cursor += 4;
+            continue;
+        }
+
+        if (cursor[0] == '2' &&
+            cursor[1] == '>')
+        {
+            tokens[token_count].type = TOKEN_REDIRECT_ERR;
+            tokens[token_count].text = cursor;
+            tokens[token_count].length = 2;
+
+            token_count++;
+            cursor += 2;
+            continue;
+        }
+
         if (!is_operator_start(*cursor))
         {
             char *word_start = cursor;
@@ -147,6 +173,10 @@ const char *lexer_token_type_name(TokenType type)
         return ";";
     case TOKEN_BACKGROUND:
         return "&";
+    case TOKEN_REDIRECT_ERR:
+        return "2>";
+    case TOKEN_REDIRECT_ERR_TO_OUT:
+        return "2>&1";
     case TOKEN_END:
         return "end";
     }

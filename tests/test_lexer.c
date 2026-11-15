@@ -124,6 +124,38 @@ static void test_empty_input(void)
     expect_end(&tokens[0]);
 }
 
+static void test_stderr_redirections(void)
+{
+    char input[] = "command 2>error.log 2>&1";
+    Token tokens[TEST_MAX_TOKENS];
+
+    int token_count = lexer_tokenize(
+        input,
+        tokens,
+        TEST_MAX_TOKENS);
+
+    assert(token_count == 4);
+
+    expect_token(&tokens[0], TOKEN_WORD, "command");
+
+    expect_token(
+        &tokens[1],
+        TOKEN_REDIRECT_ERR,
+        "2>");
+
+    expect_token(
+        &tokens[2],
+        TOKEN_WORD,
+        "error.log");
+
+    expect_token(
+        &tokens[3],
+        TOKEN_REDIRECT_ERR_TO_OUT,
+        "2>&1");
+
+    expect_end(&tokens[4]);
+}
+
 int main(void)
 {
     test_simple_command();
@@ -131,6 +163,7 @@ int main(void)
     test_append_redirection();
     test_and_operator();
     test_empty_input();
+    test_stderr_redirections();
 
     puts("Lexer tests passed");
     return 0;
